@@ -1,4 +1,4 @@
-## snifftest
+## Snifftest
 
 This tool utilizes python watchdog to easily identify file/directory modification/creation/deletion.
 
