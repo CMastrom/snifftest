@@ -168,16 +168,29 @@ def flagged_processes():
 
 
 def handler(signal_received, frame):
+    global cached_lsof
+
     # Handle any cleanup here
-    print('Ctrl + C detected, leaving...')
-    if LISTEN_MODE:
-        while True:
-            should_display = input("Display all '"+Msg.blue(str(len(commands)))+"' sniffs? (y/n): ")
-            if should_display.strip().lower() == 'y':
-                print_sniffs()
-                return
-            elif should_display.strip().lower() == 'n':
-                return
+    print('Ctrl + C detected, parsing...')
+
+    # Parse cached_lsof:
+    index = 0
+    cached_lsof_length = len(cached_lsof)
+    while index < cached_lsof_length:
+        # Always uses element 0 since first element is always popped:
+        parse_lsof(cached_lsof[0])
+        cached_lsof.pop(0)
+        index += 1
+    del cached_lsof
+    print(Msg.fnote("PARSE SUCCESSFUL")+" successfully parsed and erased cached data...")
+
+    while True:
+        should_display = input("Display all '"+Msg.blue(str(len(commands)))+"' sniffs? (y/n): ")
+        if should_display.strip().lower() == 'y':
+            print_sniffs()
+            return
+        elif should_display.strip().lower() == 'n':
+            return
 signal(SIGINT, handler)
 
 def popen(command):
@@ -189,7 +202,6 @@ def popen(command):
         print(e)
     return process
 
-LISTEN_MODE = False
 help = """
             Sniff Test Software -- Version 1.0.0
             Description:
@@ -197,7 +209,7 @@ help = """
             
             Options:
                 [ --help ] displays the current message
-                [ --listen ] doesn't display any information in the terminal (except for errors), but rather silently continually listens to what is going on, then dumps it once CTRL + C is detected. NOTE: It will dump the full lists, not the unique sniffs!
+                [  ] Default (no passing of parameters) doesn't display any information in the terminal (except for errors), but rather silently continually listens to what is going on, then dumps it once CTRL + C is detected. NOTE: It will dump the full lists, not the unique sniffs!
             
             Notable Information:
                 The following variables/lists/sets/etc are from this script and can be accessed once in python interactive mode:
@@ -208,6 +220,7 @@ help = """
                     pids = [] -> Process IDs
                     file_paths = [] -> File path of file that was ran
                     _flagged_processes = [] -> List of flagged processes
+                    cached_lsof = [] -> The lsof command gets loaded into a cached list (to get more accurate results), but once program is CTR + C then it gets unallocated. (NOTE: If it still persists in interactive mode then run 'del cached_lsof' to remove from memory)
 
                     print_sniffs(top: int = False, bottom: int = False) = def -> Function that displays all sniffs (including duplicates) (Optional: You can specify how many to print from the top and bottom)
                     uprint_sniffs(top: int = False, bottom: int = False) = def -> Function that displays all sniffs (not including duplicates) (Optional: You can specify how many to print from the top and bottom)
@@ -222,13 +235,11 @@ try:
     if argv[1] == "--help":
         print(help)
         sysexit(1)
-    elif argv[1] == "--listen":
-        print(Msg.fwarn("LISTEN MODE")+" ON")
-        LISTEN_MODE = True
 except Exception:
     pass
 
 # Global declarations:
+cached_lsof = [] # Cached lines of lsof before parsing
 pids_unique = [] # Pid names (unique)
 commands_corr = [] # Corresponding command names for pids_unique
 file_paths_corr = [] # Corresponding file_path names for pids_unique
@@ -254,17 +265,13 @@ def did_add(_list, value):
     else:
         return False
 
-count_sniffs = 0
 def parse_lsof(line):
-    global count_sniffs
-
     l = line.split(" ")
     if line == "":
         return
     l = remove_spaces(l)
     try:
         commands.append(l[0])
-        count_sniffs += 1
     except:
         print(Msg.ferror("PARSE FAILED")+ Msg.cyan("command") + line)
         return
@@ -288,16 +295,8 @@ def parse_lsof(line):
         print(Msg.ferror("PARSE FAILED")+ Msg.yellow("file path") + line)
         file_paths.append(Msg.red("NOT FOUND"))
 
-    if not LISTEN_MODE:
-        print(Msg.fnote("ACTIVE SNIFFS")+" :", end="\n\t")
-        print(commands_corr)
-        input("")
-    else:
-        print(Msg.fnote("SNIFFS: ")+Msg.yellow(str(count_sniffs)), end="\r")
-
 print("This script will keep running until Ctrl + C is executed...")
 
 while True:
-    lsof_lines = popen('lsof')
-    for line in lsof_lines:
-        parse_lsof(line)
+    cached_lsof += popen('lsof')
+    print(Msg.fnote("SNIFFS: ")+Msg.yellow(str(len(cached_lsof))), end="\r")
