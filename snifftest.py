@@ -5,6 +5,7 @@ import logging
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 from colors import Msg
+from code import interact
 
 try:
     if sys.argv[1] == "--parse":
@@ -83,9 +84,11 @@ try:
                     [ * ] -> prints all sniffed content in human-readable format
                     [ find ] [ fpath | faction | fdate ] [ key_word ] -> searches file paths (fpath), file actions (faction), or file dates (fdate) and prints the results
                     [ q | exit ] -> exits program (NOTE: does not delete log file)
+                    [ i ] -> drop into python interactive mode
+                    [ count ] [ sniffs ] -> count the total sniffs made
                     (NOTE: This builds off of python watchdog)
                 """)
-                response = input(">>> ")
+                response = input("### ")
                 if response.strip().lower() == "*":
                     print("File Date\t", "File Action\t", "File Path")
                     for (fpath, faction, fdate) in zip(file_paths, file_actions, dates):
@@ -127,6 +130,16 @@ try:
                                 print(Msg.ferror("FIND FDATE ERROR")+" Must specify a keyword to search for.")
                         else:
                             print(Msg.ferror("FIND ERROR")+" Passed argument not recognized.")
+                    elif response.strip().lower().split(" ")[0] == "count":
+                        if response.strip().lower().split(" ")[1] == "sniffs":
+                            print(Msg.fnote("TOTAL SNIFFS")+" : "+Msg.yellow(str(len(file_paths))))
+                        else:
+                            print(Msg.ferror("COUNT ERROR")+" Passed argument not recognized.")
+                    else:
+                        print(Msg.ferror("GENERIC ERROR")+ " Passed argument not recognized.")
+                elif response.strip().lower() == "i":
+                    print(Msg.fnote("INTERACTIVE MODE")+" "+Msg.green("ON"))
+                    interact(local=locals())
                 elif response.strip().lower() == "exit" or response.strip().lower() == "q":
                     sys.exit(0)
                 else:
